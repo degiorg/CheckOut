@@ -40,9 +40,9 @@ object CheckOut  {
             }
         }
     }
-
     checkOut.total
   }
+  
   def subtotal(num: Int, price: BigDecimal) : BigDecimal = num * price
   def getPrice(fruit: Fruit) : BigDecimal = PriceList.priceList.getOrElse(fruit, PriceList.notFound)
   def getDiscount(fruit: Fruit) : Int = Deal.buyXGetYFree.getOrElse(fruit, Deal.notFound)
@@ -83,9 +83,6 @@ class Total {
 case class Fruit(name: String)
 
 case class Basket(fruits: Map[Fruit, Int])
-object Basket {
-  val empty: Map[Nothing, Nothing] = Map.empty
-}
 
 object PriceList  {
   val priceList: Map[Fruit, BigDecimal] = Map(
