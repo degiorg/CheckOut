@@ -56,9 +56,9 @@ object CheckOut  {
     }
   }
   def calcBundle(fruit1: (Fruit, Int), fruit2: (Fruit, Int)): BigDecimal = {
-    val fruit1Price = bundleBuffer(fruit1)
-    val fruit2Price = bundleBuffer(fruit2)
-    if (fruit1Price > fruit2Price) fruit2Price else fruit1Price
+    val fruit1LinePrice = bundleBuffer(fruit1)
+    val fruit2LinePrice = bundleBuffer(fruit2)
+    if (fruit1LinePrice > fruit2LinePrice) fruit2LinePrice else fruit1LinePrice
   }
   def bundleBuffer(fruit: (Fruit, Int)) : BigDecimal = {
     val price = getPrice(fruit._1)
