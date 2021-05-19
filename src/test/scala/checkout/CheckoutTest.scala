@@ -27,9 +27,15 @@ class CheckoutTest extends AnyFlatSpec with Matchers {
   """Checkout Orange""" should """apply 3x2 on Orange = 0,5""" in {
     CheckOut.process("Orange" , "Orange", "Orange")  shouldEqual 0.5
   }
+
   """Checkout 2 Apple """ should """apply 2x1 on Apple = 0,6""" in {
     CheckOut.process("Apple" , "Apple")  shouldEqual 0.60
   }
+
+  """Checkout 2 Banana 1 Orange """ should """apply 2x1 on Banana = 0,20 + Orange 0,25 = 0,45 """ in {
+    CheckOut.process("Banana" , "Orange", "Banana")  shouldEqual 0.45
+  }
+
   """Checkout 2 Apple 1 Banana""" should """apply 2x1 on Apple and Bundle on Banana = 0,6""" in {
     CheckOut.process("Apple" , "Apple", "Banana")  shouldEqual 0.60
   }

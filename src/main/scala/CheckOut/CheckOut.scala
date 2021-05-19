@@ -33,22 +33,22 @@ object CheckOut  {
         fruitBundle match {
           case Deal.bundleNotFound => tot
           case _ =>
-            val fruitBundleNum: Int = basket.fruits.getOrElse(fruitBundle, 0)
-            fruitBundleNum match {
+            val fruitBundleQty: Int = basket.fruits.getOrElse(fruitBundle, 0)
+            fruitBundleQty match {
               case 0 => tot
-              case _ => calcBundle(currFruit, (fruitBundle, fruitBundleNum))
+              case _ => calcBundle(currFruit, (fruitBundle, fruitBundleQty))
             }
         }
     }
     checkOut.total
   }
   
-  def subtotal(num: Int, price: BigDecimal) : BigDecimal = num * price
+  def subtotal(qty: Int, price: BigDecimal) : BigDecimal = qty * price
   def getPrice(fruit: Fruit) : BigDecimal = PriceList.priceList.getOrElse(fruit, PriceList.notFound)
   def getDiscount(fruit: Fruit) : Int = Deal.buyXGetYFree.getOrElse(fruit, Deal.notFound)
-  def discountBuyX(num: Int, opLeft: Int, price: BigDecimal): BigDecimal = {
+  def discountBuyX(qty: Int, opLeft: Int, price: BigDecimal): BigDecimal = {
     if (opLeft > 0)
-    num / opLeft match {
+    qty / opLeft match {
       case res if res >= 1 => res * price
       case _ => 0
     } else {
