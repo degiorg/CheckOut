@@ -1,57 +1,91 @@
 package CheckOut
 
-object CheckOut  {
-  def process(items: String*) : BigDecimal = {
+object CheckOut {
+  def process(items: String*): BigDecimal = {
 
     val basket = Basket(items.groupMapReduce(Fruit)(_ => 1)(_ + _))
-    val checkOut = new Total
+    //check if product exist in price list
+    val checkOut = CheckOutList(
+      basket.fruits.foldLeft(CheckOutList.empty) {
+        case (list, (name, qty)) =>
+          val price = getPrice(name)
+          if (price != PriceList.notFound) {
+            val offers = Deal.discountList.filter(x => x._1 == name).toList
+            CheckOutLine(name, qty, price, offers) :: list
+          } else {
+            list
+          }
+      }
+    )
+    if (checkOut.lineList != CheckOutList.empty) {
+      val total = checkOut.lineList.foldLeft(SubTotal.empty) {
+        case (tot, checkOutLine) =>
+          val discount = checkOutLine.offers.foldLeft(SubTotal.empty) {
+            case (totDisc, (_, discountType)) =>
+              discountType match {
+                case i: Int =>
+                  val value =
+                    discountBuyX(
+                      checkOutLine.qty,
+                      i,
+                      checkOutLine.price
+                    )
+                  totDisc + value
 
-    // STEP1
-    checkOut addSubTotal basket.fruits.foldLeft(SubTotal.empty) {
-      case (tot, currFruit) =>
-        val price = getPrice(currFruit._1)
-        price match {
-          case PriceList.notFound => tot
-          case _ => tot + subtotal(currFruit._2 , price)
-        }
-    }
+                case fruitBundle: Fruit =>
+                  val findFruit = basket.fruits.getOrElse(fruitBundle, "")
+                  val value: BigDecimal = findFruit match {
+                    case "" => 0
+                    case _ =>
+                      val fruitBundleQty: Int =
+                        basket.fruits.getOrElse(fruitBundle, 0)
+                      val valueDisc: BigDecimal = fruitBundleQty match {
+                        case 0 => 0
+                        case _ =>
+                          calcBundle(
+                            (checkOutLine.fruit, checkOutLine.qty),
+                            (fruitBundle, fruitBundleQty)
+                          )
+                      }
+                      valueDisc
+                  }
+                  totDisc + value
 
-    //STEP2
-    checkOut applyDiscount basket.fruits.foldLeft(SubTotal.empty) {
-      case (tot, currFruit) =>
-        val discount = getDiscount(currFruit._1)
-        discount match {
-          case Deal.notFound => tot
-          case _ => tot + discountBuyX(currFruit._2, discount, getPrice(currFruit._1))
-        }
-    }
+                case _ => totDisc
+              }
+          }
+          tot + checkOutLine.subTotal - discount
+      }
 
-    //STEP 3
-    checkOut applyDiscount basket.fruits.foldLeft(SubTotal.empty) {
-      case (tot, currFruit) =>
-        val fruitBundle : Fruit = Deal.bundle.getOrElse(currFruit._1, Deal.bundleNotFound)
-        fruitBundle match {
-          case Deal.bundleNotFound => tot
-          case _ =>
-            val fruitBundleQty: Int = basket.fruits.getOrElse(fruitBundle, 0)
-            fruitBundleQty match {
-              case 0 => tot
-              case _ => calcBundle(currFruit, (fruitBundle, fruitBundleQty))
-            }
-        }
-    }
-    checkOut.total
+      val bundleFound =
+        for (
+          line <- checkOut.lineList; bundle <- Bundle.list
+          if (line.fruit == bundle._1) && (basket.fruits.getOrElse(
+            bundle._2,
+            ""
+          ) != "")
+        ) yield line
+
+      if (bundleFound.isEmpty) {
+        val finalTotal = total - (total * 10 / 100)
+        finalTotal
+      } else total
+    } else 0
+
   }
-  
-  def subtotal(qty: Int, price: BigDecimal) : BigDecimal = qty * price
-  def getPrice(fruit: Fruit) : BigDecimal = PriceList.priceList.getOrElse(fruit, PriceList.notFound)
-  def getDiscount(fruit: Fruit) : Int = Deal.buyXGetYFree.getOrElse(fruit, Deal.notFound)
+
+  def subtotal(qty: Int, price: BigDecimal): BigDecimal = qty * price
+  def getPrice(fruit: Fruit): BigDecimal =
+    PriceList.priceList.getOrElse(fruit, PriceList.notFound)
+  def getDiscount(fruit: Fruit): Int =
+    BuyXGet1Free.list.getOrElse(fruit, 0)
   def discountBuyX(qty: Int, opLeft: Int, price: BigDecimal): BigDecimal = {
     if (opLeft > 0)
-    qty / opLeft match {
-      case res if res >= 1 => res * price
-      case _ => 0
-    } else {
+      qty / opLeft match {
+        case res if res >= 1 => res * price
+        case _               => 0
+      }
+    else {
       0
     }
   }
@@ -60,31 +94,38 @@ object CheckOut  {
     val fruit2LinePrice = bundleBuffer(fruit2)
     if (fruit1LinePrice > fruit2LinePrice) fruit2LinePrice else fruit1LinePrice
   }
-  def bundleBuffer(fruit: (Fruit, Int)) : BigDecimal = {
+  def bundleBuffer(fruit: (Fruit, Int)): BigDecimal = {
     val price = getPrice(fruit._1)
     val discount = getDiscount(fruit._1)
     subtotal(fruit._2, price) - discountBuyX(fruit._2, discount, price)
   }
 }
 
-
 case class SubTotal(amount: BigDecimal)
 object SubTotal {
   val empty: BigDecimal = 0.0
-}
-class Total {
-  private var tot : BigDecimal = 0.0
-  def total: BigDecimal = tot
-
-  def addSubTotal(amount: BigDecimal): Unit = tot = tot + amount
-  def applyDiscount(discount: BigDecimal): Unit = tot = tot - discount
 }
 
 case class Fruit(name: String)
 
 case class Basket(fruits: Map[Fruit, Int])
 
-object PriceList  {
+case class CheckOutList(lineList: List[CheckOutLine])
+object CheckOutList {
+  val empty: List[CheckOutLine] = List(
+    CheckOutLine(Fruit(""), 0, 0.0, List((Fruit(""), "")))
+  )
+}
+case class CheckOutLine(
+    fruit: Fruit,
+    qty: Int,
+    price: BigDecimal,
+    offers: List[(Fruit, Any)]
+) {
+  val subTotal: BigDecimal = qty * price
+}
+
+object PriceList {
   val priceList: Map[Fruit, BigDecimal] = Map(
     Fruit("Apple") -> 0.6,
     Fruit("Orange") -> 0.25,
@@ -93,16 +134,23 @@ object PriceList  {
   val notFound: BigDecimal = 0.0
 }
 
-object Deal  {
-  val buyXGetYFree: Map[Fruit, Int] = Map(
+class Deal
+object Deal {
+  val discountList: Seq[(Fruit, Any)] = {
+    (BuyXGet1Free.list.toList :: Bundle.list.toList :: Nil).flatten
+  }
+}
+case class BuyXGet1Free(offers: Map[Fruit, Int]) extends Deal
+object BuyXGet1Free {
+  val list: Map[Fruit, Int] = Map(
     Fruit("Apple") -> 2,
     Fruit("Orange") -> 3,
     Fruit("Banana") -> 2
   )
-  val notFound: Int = 0
-
-  val bundle: Map[Fruit, Fruit] = Map(
+}
+case class Bundle(offers: Map[Fruit, Fruit]) extends Deal
+object Bundle {
+  val list: Map[Fruit, Fruit] = Map(
     Fruit("Apple") -> Fruit("Banana")
   )
-  val bundleNotFound: Fruit = Fruit("")
 }
