@@ -27,7 +27,7 @@ class CheckoutTest extends AnyFlatSpec with Matchers {
     CheckOut.process("Apple", "Orange") shouldEqual 0.765
   }
 
-  "Checkout Orange" should
+  "Checkout 3 Orange" should
     "apply 3x2 on Orange = 0,5 - 10% = 0,45" in {
     CheckOut.process("Orange", "Orange", "Orange") shouldEqual 0.45
   }

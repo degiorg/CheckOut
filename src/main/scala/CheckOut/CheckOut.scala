@@ -18,58 +18,50 @@ object CheckOut {
       }
     )
     if (checkOut.lineList != CheckOutList.empty) {
-      val total = checkOut.lineList.foldLeft(SubTotal.empty) {
-        case (tot, checkOutLine) =>
-          val discount = checkOutLine.offers.foldLeft(SubTotal.empty) {
-            case (totDisc, (_, discountType)) =>
-              discountType match {
-                case i: Int =>
-                  val value =
-                    discountBuyX(
-                      checkOutLine.qty,
-                      i,
-                      checkOutLine.price
-                    )
-                  totDisc + value
-
-                case fruitBundle: Fruit =>
-                  val findFruit = basket.fruits.getOrElse(fruitBundle, "")
-                  val value: BigDecimal = findFruit match {
-                    case "" => 0
-                    case _ =>
-                      val fruitBundleQty: Int =
-                        basket.fruits.getOrElse(fruitBundle, 0)
-                      val valueDisc: BigDecimal = fruitBundleQty match {
-                        case 0 => 0
-                        case _ =>
+      val totalCheck = checkOut.total -
+        // calc discount for each lines
+        checkOut.lineList.foldLeft(SubTotal.empty) {
+          case (tot, line) =>
+            val lineDisc =
+              if (line.offers.nonEmpty)
+                line.offers.foldLeft(SubTotal.empty) {
+                  case (totDiscLine, (fruitLine, disc)) =>
+                    disc match {
+                      // buy x get one free
+                      case i: Int =>
+                        discountBuyX(line.qty, i, line.price) + totDiscLine
+                      // bundle
+                      case fruit: Fruit =>
+                        val findFruit: List[CheckOutLine] =
+                          checkOut.lineList.filter(x => x.fruit == fruit)
+                        if (findFruit.nonEmpty) {
+                          val fruitFind = findFruit.head
                           calcBundle(
-                            (checkOutLine.fruit, checkOutLine.qty),
-                            (fruitBundle, fruitBundleQty)
-                          )
-                      }
-                      valueDisc
-                  }
-                  totDisc + value
-
-                case _ => totDisc
-              }
-          }
-          tot + checkOutLine.subTotal - discount
-      }
+                            (line.fruit, line.qty),
+                            (fruitFind.fruit, fruitFind.qty)
+                          ) + totDiscLine
+                        } else PriceList.notFound + totDiscLine
+                      case _ => 0 + totDiscLine
+                    }
+                }
+              else PriceList.notFound
+            tot + lineDisc
+        }
 
       val bundleFound =
-        for (
-          line <- checkOut.lineList; bundle <- Bundle.list
+        for {
+          line <- checkOut.lineList
+          bundle <- Bundle.list
           if (line.fruit == bundle._1) && (basket.fruits.getOrElse(
             bundle._2,
             ""
           ) != "")
-        ) yield line
+        } yield line
 
       if (bundleFound.isEmpty) {
-        val finalTotal = total - (total * 10 / 100)
+        val finalTotal = totalCheck - (totalCheck * 0.1)
         finalTotal
-      } else total
+      } else totalCheck
     } else 0
 
   }
@@ -110,7 +102,14 @@ case class Fruit(name: String)
 
 case class Basket(fruits: Map[Fruit, Int])
 
-case class CheckOutList(lineList: List[CheckOutLine])
+case class CheckOutList(lineList: List[CheckOutLine]) {
+  val total: BigDecimal = lineList.foldLeft(PriceList.notFound)(_ + _.subTotal)
+  val offerList: List[(Fruit, Any)] = lineList.foldLeft(Deal.empty) {
+    case (listDisc, line) =>
+      (listDisc :: line.offers :: Nil).flatten
+  }
+
+}
 object CheckOutList {
   val empty: List[CheckOutLine] = List(
     CheckOutLine(Fruit(""), 0, 0.0, List((Fruit(""), "")))
@@ -122,6 +121,7 @@ case class CheckOutLine(
     price: BigDecimal,
     offers: List[(Fruit, Any)]
 ) {
+
   val subTotal: BigDecimal = qty * price
 }
 
@@ -136,6 +136,7 @@ object PriceList {
 
 class Deal
 object Deal {
+  val empty: List[(Fruit, Any)] = List((Fruit(""), ""))
   val discountList: Seq[(Fruit, Any)] = {
     (BuyXGet1Free.list.toList :: Bundle.list.toList :: Nil).flatten
   }
