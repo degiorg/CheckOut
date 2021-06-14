@@ -1,4 +1,4 @@
-package CheckOut
+package checkout
 
 import scala.collection.immutable
 
@@ -34,10 +34,10 @@ class CheckOut(
             case (tot, (fruit1, fruit2)) =>
               val line1 = basket.lineList.filter(x => x.fruit == fruit1)
               val line1Price: BigDecimal =
-                if (line1.nonEmpty) line1.head.subTotal else 0
+                if (line1.nonEmpty) line1.head.total else 0
               val line2 = basket.lineList.filter(x => x.fruit == fruit2)
               val line2Price: BigDecimal =
-                if (line2.nonEmpty) line2.head.subTotal else 0
+                if (line2.nonEmpty) line2.head.total else 0
               if (line1Price > 0 && line2Price > 0) {
                 if (line1Price > line2Price) tot + line2Price
                 else tot + line1Price
@@ -96,7 +96,7 @@ object SubTotal {
 case class Fruit(name: String)
 
 case class Basket(lineList: List[CheckOutLine]) {
-  val total: BigDecimal = lineList.foldLeft(PriceList.notFound)(_ + _.subTotal)
+  val total: BigDecimal = lineList.foldLeft(PriceList.notFound)(_ + _.total)
   val offerList: List[(Fruit, Any)] = lineList.foldLeft(Deal.empty) {
     case (listDisc, line) =>
       (listDisc :: line.offers :: Nil).flatten
@@ -115,7 +115,7 @@ case class CheckOutLine(
     offers: List[(Fruit, Any)],
     discount: BigDecimal
 ) {
-  val subTotal: BigDecimal = (qty * unitPrice) - discount
+  val total: BigDecimal = (qty * unitPrice) - discount
 }
 
 object PriceList {
@@ -123,9 +123,7 @@ object PriceList {
   val notFound: BigDecimal = 0.0
 }
 
-trait Deal {
-  def calcDiscount
-}
+class Deal
 object Deal {
   val empty: List[(Fruit, Any)] = List((Fruit(""), ""))
   val discountList: Seq[(Fruit, Any)] = {

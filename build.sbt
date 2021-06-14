@@ -1,4 +1,4 @@
-name := "CheckOut"
+name := "checkout"
 
 version := "0.1"
 

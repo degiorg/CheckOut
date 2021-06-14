@@ -1,6 +1,6 @@
 package checkout
 
-import CheckOut._
+import checkout._
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
